@@ -183,10 +183,13 @@ VALUES
 
 -- **************** Useful Views ****************
 
+-- only fetches the username associated with the user's ID
 CREATE OR REPLACE VIEW v_JustUsername AS
 SELECT User_ID, User_DisplayName
-FROM User;
+FROM APP_USER;
 
+-- grabs all user relevant information regarding a session, RSVP info and location
+-- NEEDS WORK, this is kind of a draft view for this query, will be changed based on how the website functions
 CREATE OR REPLACE VIEW v_UserSessionInfo AS
 SELECT S.Session_ID, S.Group_ID, S.Host_User_ID, S.Location_ID, S.Session_StartDateTime, R.Session_ID, R.User_ID, R.SessionRSVP_Status, L.*
 FROM Session S JOIN (SessionRSVP R JOIN Location L ON R.Location_ID = L.Location_ID AS X) ON S.Session_ID = X.Session_ID;
@@ -197,7 +200,7 @@ FROM Session S JOIN (SessionRSVP R JOIN Location L ON R.Location_ID = L.Location
 -- 1. User account information
 SELECT *
 FROM APP_USER
-WHERE User_ID = 1;
+WHERE User_ID = %s;
 
 -- 2. List all groups a specific user belongs to
 SELECT 
@@ -206,7 +209,7 @@ SELECT
     STUDY_GROUP.Group_Title
 FROM GroupMembership
 JOIN STUDY_GROUP ON GroupMembership.Group_ID = STUDY_GROUP.Group_ID
-WHERE GroupMembership.User_ID = 1;
+WHERE GroupMembership.User_ID = %s;
 
 -- 3. List all members in a specific group
 SELECT 
@@ -217,7 +220,7 @@ SELECT
 FROM GroupMembership
 JOIN APP_USER ON GroupMembership.User_ID = APP_USER.User_ID
 JOIN STUDY_GROUP ON GroupMembership.Group_ID = STUDY_GROUP.Group_ID
-WHERE STUDY_GROUP.Group_ID = 1;
+WHERE STUDY_GROUP.Group_ID = %s;
 
 -- 4. List all sessions for a group
 SELECT
@@ -228,7 +231,7 @@ SELECT
     Session.Session_Notes
 FROM Session
 JOIN STUDY_GROUP ON Session.Group_ID = STUDY_GROUP.Group_ID
-WHERE STUDY_GROUP.Group_ID = 1;
+WHERE STUDY_GROUP.Group_ID = %s;
 
 -- 5. List all groups by topic
 SELECT
@@ -254,7 +257,7 @@ SELECT
     SessionRSVP.SessionRSVP_Status
 FROM SessionRSVP
 JOIN APP_USER ON SessionRSVP.User_ID = APP_USER.User_ID
-WHERE SessionRSVP.Session_ID = 1;
+WHERE SessionRSVP.Session_ID = %s;
 
 
 -- **************** Queries/functions **************** (these were what I had done that I hadn't pushed before the above 
@@ -262,15 +265,15 @@ WHERE SessionRSVP.Session_ID = 1;
 
 -- User account creation and updates
 
-INSERT INTO User (User_Email, User_PasswordHash, User_DisplayName, User_AccountStatus) VALUES (%s, %s, %s, 'Active');
+INSERT INTO APP_USER (User_Email, User_PasswordHash, User_DisplayName, User_AccountStatus) VALUES (%s, %s, %s, 'Active');
 
 
 -- User Bio and display name creation/change
 
 
-UPDATE User SET User_Bio = %s WHERE User_ID = %s; 
+UPDATE APP_USER SET User_Bio = %s WHERE User_ID = %s; 
 
-UPDATE User SET User_DisplayName = %s WHERE User_ID = %s;
+UPDATE APP_USER SET User_DisplayName = %s WHERE User_ID = %s;
 
 
 -- account login; fetches user info associated with their email and returns it. verify password hash on python's
@@ -278,29 +281,29 @@ UPDATE User SET User_DisplayName = %s WHERE User_ID = %s;
 
 
 SELECT User_ID, User_DisplayName, User_Email, User_PasswordHash
-FROM User
+FROM APP_USER
 WHERE User_Email = %s;
 
 
--- user account information query; use to display user info on their account page
+-- user account information query; use to display user info on their account page. leaves password hash out for security
 
 
 SELECT U.User_ID, U.User_Email, U.User_DisplayName, U.User_Bio, U.User_CreatedAt, U.User_AccountStatus
-FROM User U
+FROM APP_USER U
 WHERE User_ID = %s;
 
 
 -- group creation
 
 
-INSERT INTO Group (Group_Title, Group_Description, Group_PrivacyLevel, Group_SkillLevel, Owner_User_ID) VALUES ('%s', '%s', '%s', '%s', '%s');
+INSERT INTO STUDY_GROUP (Group_Title, Group_Description, Group_PrivacyLevel, Group_SkillLevel, Owner_User_ID) VALUES (%s, %s, %s, %s, %s);
 
 
 -- list groups query, use to show a list all groups and their info that a user is a member of
 
 
-SELECT GroupMembership.User_ID, GroupMembership.GroupMembership_Role, Group.Group_Title, Group.Group_Description, Group.Group_ID
-FROM GroupMembership JOIN Group ON  Group.Group_ID = GroupMembership.Group_ID
+SELECT GroupMembership.User_ID, GroupMembership.GroupMembership_Role, STUDY_GROUP.Group_Title, STUDY_GROUP.Group_Description, STUDY_GROUP.Group_ID
+FROM GroupMembership JOIN STUDY_GROUP ON  STUDY_GROUP.Group_ID = GroupMembership.Group_ID
 WHERE User_ID = %s;
 
 
@@ -308,7 +311,7 @@ WHERE User_ID = %s;
 
 
 SELECT *
-FROM Group G JOIN v_JustUsername V ON G.Owner_User_ID = V.User_ID
+FROM STUDY_GROUP G JOIN v_JustUsername V ON G.Owner_User_ID = V.User_ID
 WHERE Group_ID = %s;
 
 
@@ -316,5 +319,5 @@ WHERE Group_ID = %s;
 
 
 SELECT *
-FROM v_UserSessionInfo Y JOIN (Group G JOIN v_JustUsername V ON G.Owner_User_ID = V.User_ID AS X) ON Y.Group_ID = X.Group_ID
+FROM v_UserSessionInfo Y JOIN (STUDY_GROUP G JOIN v_JustUsername V ON G.Owner_User_ID = V.User_ID AS X) ON Y.Group_ID = X.Group_ID
 WHERE Group_ID = %s;

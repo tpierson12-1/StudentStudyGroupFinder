@@ -49,7 +49,7 @@ def init_db():
     cursor.execute("INSERT INTO GroupTopic VALUES (1, 1), (1, 2), (2, 3), (3, 5))")
     cursor.execute("INSERT INTO Location VALUES (1, 'Online', 'https://zoom.us/j/123456789', NULL, NULL, NULL, NULL), (2, 'InPerson', NULL, '318 Meadow Brook Rd', 'Rochester', 'MI', '48309'), (3, 'Online', 'https://meet.google.com/abc-defg-hij', NULL, NULL, NULL, NULL))")
     cursor.execute("INSERT INTO Session VALUES (1, 1, 4, 1, '2026-04-15 18:00:00', '2026-04-15 19:30:00', 15, 'Review SQL joins and normalization.'), (2, 2, 2, 2, '2026-04-16 17:00:00', '2026-04-16 18:30:00', 20, 'Calculus exam prep session.'), (3, 3, 4, 3, '2026-04-17 19:00:00', '2026-04-17 20:30:00', 10, 'Work on Python project tasks.');)")
-    cursor.execute("INSERT INTO Session RSVP VALUES (1, 1, 'Going'), (1, 3, 'Going'), (1, 4, 'Going'), (2, 2, 'Going'), (2, 5, 'Interested'), (3, 1, 'Going'), (3, 3, 'Pending'), (3, 4, 'Going');)")
+    cursor.execute("INSERT INTO Session RSVP VALUES (1, 1, 'Going'), (1, 3, 'Going'), (1, 4, 'Going'), (2, 2, 'Going'), (2, 5, 'Interested'), (3, 1, 'Going'), (3, 3, 'Pending'), (3, 4, 'Going'))")
 
     conn.commit()
     print("---Database Setup Finished----")

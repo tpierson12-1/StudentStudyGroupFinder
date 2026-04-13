@@ -18,7 +18,7 @@ USE GroupFinderDB;
 -- Table creation
 
 CREATE TABLE IF NOT EXISTS APP_USER(
-    User_ID INT PRIMARY KEY,
+    User_ID INT AUTO_INCREMENT PRIMARY KEY,     -- added AUTO_INCREMENT here so that User ID's are auto generated
     User_Email VARCHAR(255) NOT NULL UNIQUE,
     User_PasswordHash VARCHAR(255) NOT NULL,
     User_DisplayName VARCHAR(100) UNIQUE,
@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS Tutor(
 );
 
 CREATE TABLE IF NOT EXISTS STUDY_GROUP(
-    Group_ID INT PRIMARY KEY,
+    Group_ID INT AUTO_INCREMENT PRIMARY KEY,    -- added AUTO_INCREMENT here as well
     Group_Title VARCHAR(100) NOT NULL,
     Group_Description TEXT,
     Group_PrivacyLevel VARCHAR(20),
@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS GroupMembership(
 );
 
 CREATE TABLE IF NOT EXISTS Topic(
-    Topic_ID INT PRIMARY KEY,
+    Topic_ID INT AUTO_INCREMENT PRIMARY KEY,  --added it here as well
     Topic_Name VARCHAR(100) NOT NULL,
     Topic_Category VARCHAR(100)
 );
@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS GroupTopic(
 );
 
 CREATE TABLE IF NOT EXISTS Location(
-    Location_ID INT PRIMARY KEY,
+    Location_ID INT AUTO_INCREMENT PRIMARY KEY,   -- here as well
     Location_Type VARCHAR(20),
     Location_MeetingLink VARCHAR(255),
     Location_AddressLine1 VARCHAR(255),
@@ -85,7 +85,7 @@ CREATE TABLE IF NOT EXISTS Location(
 );
 
 CREATE TABLE IF NOT EXISTS Session(
-    Session_ID INT PRIMARY KEY,
+    Session_ID INT AUTO_INCREMENT PRIMARY KEY,   -- also here
     Group_ID INT NOT NULL,
     Host_User_ID INT,
     Location_ID INT,
@@ -180,6 +180,18 @@ VALUES
 (3, 3, 'Pending'),
 (3, 4, 'Going');
 
+
+-- **************** Useful Views ****************
+
+CREATE OR REPLACE VIEW v_JustUsername AS
+SELECT User_ID, User_DisplayName
+FROM User;
+
+CREATE OR REPLACE VIEW v_UserSessionInfo AS
+SELECT S.Session_ID, S.Group_ID, S.Host_User_ID, S.Location_ID, S.Session_StartDateTime, R.Session_ID, R.User_ID, R.SessionRSVP_Status, L.*
+FROM Session S JOIN (SessionRSVP R JOIN Location L ON R.Location_ID = L.Location_ID AS X) ON S.Session_ID = X.Session_ID;
+
+
 -- **************** Demo Queries ****************
 
 -- 1. User account information
@@ -243,3 +255,66 @@ SELECT
 FROM SessionRSVP
 JOIN APP_USER ON SessionRSVP.User_ID = APP_USER.User_ID
 WHERE SessionRSVP.Session_ID = 1;
+
+
+-- **************** Queries/functions **************** (these were what I had done that I hadn't pushed before the above 
+-- demo queries were added, I'm just adding them and pushing them for now, I'll square them up with everything else over the next day)
+
+-- User account creation and updates
+
+INSERT INTO User (User_Email, User_PasswordHash, User_DisplayName, User_AccountStatus) VALUES (%s, %s, %s, 'Active');
+
+
+-- User Bio and display name creation/change
+
+
+UPDATE User SET User_Bio = %s WHERE User_ID = %s; 
+
+UPDATE User SET User_DisplayName = %s WHERE User_ID = %s;
+
+
+-- account login; fetches user info associated with their email and returns it. verify password hash on python's
+-- end using bcrypt or similar encryption tool
+
+
+SELECT User_ID, User_DisplayName, User_Email, User_PasswordHash
+FROM User
+WHERE User_Email = %s;
+
+
+-- user account information query; use to display user info on their account page
+
+
+SELECT U.User_ID, U.User_Email, U.User_DisplayName, U.User_Bio, U.User_CreatedAt, U.User_AccountStatus
+FROM User U
+WHERE User_ID = %s;
+
+
+-- group creation
+
+
+INSERT INTO Group (Group_Title, Group_Description, Group_PrivacyLevel, Group_SkillLevel, Owner_User_ID) VALUES ('%s', '%s', '%s', '%s', '%s');
+
+
+-- list groups query, use to show a list all groups and their info that a user is a member of
+
+
+SELECT GroupMembership.User_ID, GroupMembership.GroupMembership_Role, Group.Group_Title, Group.Group_Description, Group.Group_ID
+FROM GroupMembership JOIN Group ON  Group.Group_ID = GroupMembership.Group_ID
+WHERE User_ID = %s;
+
+
+-- single group query, use to show a specific group's info
+
+
+SELECT *
+FROM Group G JOIN v_JustUsername V ON G.Owner_User_ID = V.User_ID
+WHERE Group_ID = %s;
+
+
+-- Single group query for showing all group info and sessions related to it
+
+
+SELECT *
+FROM v_UserSessionInfo Y JOIN (Group G JOIN v_JustUsername V ON G.Owner_User_ID = V.User_ID AS X) ON Y.Group_ID = X.Group_ID
+WHERE Group_ID = %s;

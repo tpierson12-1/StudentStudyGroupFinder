@@ -194,6 +194,20 @@ CREATE OR REPLACE VIEW v_UserSessionInfo AS
 SELECT S.Session_ID, S.Group_ID, S.Host_User_ID, S.Location_ID, S.Session_StartDateTime, R.Session_ID, R.User_ID, R.SessionRSVP_Status, L.*
 FROM Session S JOIN (SessionRSVP R JOIN Location L ON R.Location_ID = L.Location_ID AS X) ON S.Session_ID = X.Session_ID;
 
+-- a view for querying the full list of groups. Used in a handful of group list queries, I was picturing dropdown menus
+-- on the webpage that filter the main list of groups by different things (by topic, date created etc)
+-- so this view can just be used for all of those queries to make them shorter since the only difference between them will
+-- be a WHERE clause or something
+
+CREATE OR REPLACE VIEW v_GroupList AS
+SELECT *
+FROM v_JustUsername V JOIN 
+        (STUDY_GROUP G JOIN 
+            (Topic T JOIN GroupTopic GT 
+                ON T.Topic_ID = GT.Topic_ID AS GTNew
+            ) ON G.Group_ID = GTNew.Group_ID AS GNew
+        ) ON GNew.Owner_User_ID = V.User_ID;
+
 
 -- **************** Demo Queries ****************
 
@@ -260,17 +274,14 @@ JOIN APP_USER ON SessionRSVP.User_ID = APP_USER.User_ID
 WHERE SessionRSVP.Session_ID = %s;
 
 
--- **************** Queries/functions **************** (these were what I had done that I hadn't pushed before the above 
--- demo queries were added, I'm just adding them and pushing them for now, I'll square them up with everything else over the next day)
+-- **************** Queries/functions ****************
+
 
 -- User account creation and updates
-
 INSERT INTO APP_USER (User_Email, User_PasswordHash, User_DisplayName, User_AccountStatus) VALUES (%s, %s, %s, 'Active');
 
 
 -- User Bio and display name creation/change
-
-
 UPDATE APP_USER SET User_Bio = %s WHERE User_ID = %s; 
 
 UPDATE APP_USER SET User_DisplayName = %s WHERE User_ID = %s;
@@ -278,46 +289,54 @@ UPDATE APP_USER SET User_DisplayName = %s WHERE User_ID = %s;
 
 -- account login; fetches user info associated with their email and returns it. verify password hash on python's
 -- end using bcrypt or similar encryption tool
-
-
 SELECT User_ID, User_DisplayName, User_Email, User_PasswordHash
 FROM APP_USER
 WHERE User_Email = %s;
 
 
 -- user account information query; use to display user info on their account page. leaves password hash out for security
-
-
 SELECT U.User_ID, U.User_Email, U.User_DisplayName, U.User_Bio, U.User_CreatedAt, U.User_AccountStatus
 FROM APP_USER U
 WHERE User_ID = %s;
 
 
 -- group creation
-
-
 INSERT INTO STUDY_GROUP (Group_Title, Group_Description, Group_PrivacyLevel, Group_SkillLevel, Owner_User_ID) VALUES (%s, %s, %s, %s, %s);
 
 
+-- group queries filtered by whatever info you want. Can add to these deoending on what filters we want.
+-- see comment above related VIEW for more info
+
+SELECT *
+FROM v_GroupList
+WHERE Topic_ID = %s;
+
+SELECT *
+FROM v_GroupList
+WHERE Group_PrivacyLevel = %s;
+
+-- this one filters by the group owner's name so a user can search for groups with a specific owner
+SELECT *
+FROM v_GroupList
+WHERE User_DisplayName = %s;
+
+
+-- these probably aren't necessary anymore I wan't sure what I was doing here but I'm leaving them in case they're useful later
+/*
 -- list groups query, use to show a list all groups and their info that a user is a member of
-
-
 SELECT GroupMembership.User_ID, GroupMembership.GroupMembership_Role, STUDY_GROUP.Group_Title, STUDY_GROUP.Group_Description, STUDY_GROUP.Group_ID
 FROM GroupMembership JOIN STUDY_GROUP ON  STUDY_GROUP.Group_ID = GroupMembership.Group_ID
 WHERE User_ID = %s;
 
 
 -- single group query, use to show a specific group's info
-
-
 SELECT *
 FROM STUDY_GROUP G JOIN v_JustUsername V ON G.Owner_User_ID = V.User_ID
 WHERE Group_ID = %s;
 
 
 -- Single group query for showing all group info and sessions related to it
-
-
 SELECT *
 FROM v_UserSessionInfo Y JOIN (STUDY_GROUP G JOIN v_JustUsername V ON G.Owner_User_ID = V.User_ID AS X) ON Y.Group_ID = X.Group_ID
 WHERE Group_ID = %s;
+*/

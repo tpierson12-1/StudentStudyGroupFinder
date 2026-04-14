@@ -12,21 +12,48 @@ templates = Jinja2Templates(directionary="templates")
 
 db_pool = pooling.MYSQLConnectionPool(
   pool_name = "studygroup_pool",
-  host = os.getenv(""),
-  user = os.getenv(""),
-  pwd = os.getenv(""),
-  database = os.getenv("")
+  host = os.getenv("localhost"),
+  user = os.getenv("root"),
+  pwd = os.getenv(""), # You can put what password in there
+  database = os.getenv("GroupFinderDB")
 )
 
 def get_db_conn():
   return db_pool.get_connection()
 
+@app.get("/")
 def dashboard(request: Request):
   conn = get_db_conn
   cursor = conn.cursor(dictionary=True)
   try:
-    cursor.execute()
+    cursor.execute("SELECT * FROM APP_USER WHERE User_ID = %s;")
+    APP_USER = cursor.fetchall()
+     
+   
+  
+
+
+    return templates.TemplateResponse(
+      request = request,
+      name = "dashboard.html",
+      context ={"STUDY_GROUP": STUDY_GROUP, "GroupMembership": GroupMembership}
+    )
   finally:
     cursor.close()
     conn.close()
-   
+
+@app.post("")
+def checkout():
+  conn = get_db_conn()
+  cursor = conn.cursor()
+  try:
+    cursor.execute()
+    cursor.execute()
+    conn.committ()
+  except Exception as e:
+    conn.rollback()
+    print(f"Error:{e}")
+  finally:
+    cursor.close()
+    conn.close()
+return RedirectResponse(url="/", status_code= 303)

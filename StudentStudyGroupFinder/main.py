@@ -26,34 +26,43 @@ def dashboard(request: Request):
   conn = get_db_conn
   cursor = conn.cursor(dictionary=True)
   try:
-    cursor.execute("SELECT * FROM APP_USER WHERE User_ID = %s;")
-    APP_USER = cursor.fetchall()
-     
-   
-  
-
+    cursor.execute("SELECT * FROM STUDY_GROUP")
+    STUDY_GROUP = cursor.fetchall()
+    query = "\SELECT  GroupMembership.User_ID, GroupMembership.GroupMembership_Role, STUDY_GROUP.Group_Title FROM GroupMembership JOIN STUDY_GROUP ON GroupMembership.Group_ID = STUDY_GROUP.Group_ID WHERE GroupMembership.User_ID = %s;"
+    cursor.execute(query)
+    v_GroupList = cursor.fetchall()
 
     return templates.TemplateResponse(
       request = request,
       name = "dashboard.html",
-      context ={"STUDY_GROUP": STUDY_GROUP, "GroupMembership": GroupMembership}
+      context = {"GroupTopic": GroupTopic, "v_GroupList": v_GroupList}
     )
   finally:
     cursor.close()
     conn.close()
 
-@app.post("")
-def checkout():
+@app.post("/studygroup")
+def studygroup():
   conn = get_db_conn()
   cursor = conn.cursor()
   try:
-    cursor.execute()
-    cursor.execute()
-    conn.committ()
+    cursor.execute("")
+    cursor.execute("")
+    conn.comit()
   except Exception as e:
     conn.rollback()
-    print(f"Error:{e}")
+    print(f"Error: {e}")
   finally:
     cursor.close()
     conn.close()
-return RedirectResponse(url="/", status_code= 303)
+  return RedirectResponse(url="/", status_code = 303)
+
+    
+
+     
+   
+  
+
+
+    
+

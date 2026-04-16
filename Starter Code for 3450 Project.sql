@@ -333,7 +333,9 @@ TABLE CHEAT SHEET for my use:
                                             Session_Notes
 */ 
 -- group join and leave operations
-INSERT INTO GroupMembership (Group_ID, User_ID, Group_Membership_Role, GroupMembership_JoinStatus) VALUES (%s, %s, )
+INSERT INTO GroupMembership (Group_ID, User_ID) VALUES (%s, %s);   -- join group
+
+UPDATE GroupMembership SET GroupMembership_JoinStatus IS FALSE;    -- leave group
 
 
 -- tutor creation and updating tutor information
@@ -341,6 +343,13 @@ INSERT INTO Tutor (User_ID, Tutor_Availability, Tutor_Expertise) VALUES (%s, %s,
 
 UPDATE Tutor SET Tutor_Availability = %s WHERE User_ID = %s;
 UPDATE Tutor SET Tutor_Expertise = %s WHERE User_ID = %s;
+
+
+-- create a session
+
+
+
+-- RSVP to a session and cancel an RSVP
 
 
 -- group queries filtered by whatever info you want. Can add to these deoending on what filters we want.

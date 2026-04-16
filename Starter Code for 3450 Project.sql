@@ -50,8 +50,8 @@ CREATE TABLE IF NOT EXISTS STUDY_GROUP(
 CREATE TABLE IF NOT EXISTS GroupMembership(
     Group_ID INT NOT NULL,
     User_ID INT NOT NULL,
-    GroupMembership_Role VARCHAR(35),
-    GroupMembership_JoinStatus VARCHAR(20),
+    GroupMembership_Role VARCHAR(35) DEFAULT 'Member',
+    GroupMembership_JoinStatus BOOLEAN DEFAULT TRUE,
     GroupMembership_JoinedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     PRIMARY KEY (Group_ID, User_ID),
@@ -302,6 +302,45 @@ WHERE User_ID = %s;
 
 -- group creation
 INSERT INTO STUDY_GROUP (Group_Title, Group_Description, Group_PrivacyLevel, Group_SkillLevel, Owner_User_ID) VALUES (%s, %s, %s, %s, %s);
+
+/*
+TABLE CHEAT SHEET for my use:
+    
+    User                                Tutor                       Group
+        User_ID                             User_ID                     Group_ID
+        User_Email                          Tutor_Expertise             Group_Title
+        User_PasswordHash                   Tutor_Availability          Group_Description
+        User_DisplayName                                                Group_PrivacyLevel
+        User_Bio                                                        Group_SkillLevel
+        User_CreatedAt                                                  Group_CreatedAt
+        User_AccountStatus                                              Owner_User_ID
+
+    GroupMembership                     Topic                       GroupTopic
+        Group_ID                           Topic_ID                     Group_ID
+        User_ID                            Topic_Name                   Topic_ID
+        GroupMembership_Role               Topic_Category
+        GroupMembership_JoinStatus
+        GroupMembership_JoinedAt
+    
+    Location                            Session                     SessionRSVP
+        Location_ID                         Session_ID                  Session_ID
+        Location_Type                       Group_ID                    User_ID
+        Location_MeetingLink                Host_User_ID                SessionRSVP_Status
+        Location_AddressLine1               Location_ID                 SessionRSVP_Time
+        Location_City                       Session_StartDateTime
+        Location_State                      Session_EndDateTime
+        Location_Zip                        Session_Capacity
+                                            Session_Notes
+*/ 
+-- group join and leave operations
+INSERT INTO GroupMembership (Group_ID, User_ID, Group_Membership_Role, GroupMembership_JoinStatus) VALUES (%s, %s, )
+
+
+-- tutor creation and updating tutor information
+INSERT INTO Tutor (User_ID, Tutor_Availability, Tutor_Expertise) VALUES (%s, %s, %s);
+
+UPDATE Tutor SET Tutor_Availability = %s WHERE User_ID = %s;
+UPDATE Tutor SET Tutor_Expertise = %s WHERE User_ID = %s;
 
 
 -- group queries filtered by whatever info you want. Can add to these deoending on what filters we want.

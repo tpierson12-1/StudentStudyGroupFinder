@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="/static/favicon/groupstudy.jpg" type="image/jpeg" />
+    <link rel="stylesheet" href="/static/login.css" />
+    <title>Create Account - Student Study Group Finder</title>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Create Account</h1>
+
+      {% if error %}
+      <p style="color: red; margin-bottom: 10px;">{{ error }}</p>
+      {% endif %}
+
+      <form method="post" action="/register" onsubmit="return validateRegister()">
+        <label for="fname">First Name:</label><br />
+        <input type="text" id="fname" name="fname" required /><br /><br />
+
+        <label for="lname">Last Name:</label><br />
+        <input type="text" id="lname" name="lname" required /><br /><br />
+
+        <label for="email">Email:</label><br />
+        <input type="email" id="email" name="email" required /><br /><br />
+
+        <label for="password">Password:</label><br />
+        <input type="password" id="password" name="password" required minlength="8" /><br /><br />
+
+        <label for="confirm_pwd">Confirm Password:</label><br />
+        <input type="password" id="confirm_pwd" name="confirm_pwd" required /><br /><br />
+
+        <input type="submit" value="Create Account" />
+      </form>
+
+      <p style="margin-top: 15px;">
+        Already have an account? <a href="/login">Login here</a>
+      </p>
+    </div>
+
+    <script>
+      function validateRegister() {
+        const fname = document.getElementById("fname").value.trim();
+        const lname = document.getElementById("lname").value.trim();
+        const email = document.getElementById("email").value.trim();
+        const password = document.getElementById("password").value;
+        const confirm = document.getElementById("confirm_pwd").value;
+
+        if (!fname || !lname || !email || !password || !confirm) {
+          alert("All fields are required.");
+          return false;
+        }
+        if (password.length < 8) {
+          alert("Password must be at least 8 characters.");
+          return false;
+        }
+        if (password !== confirm) {
+          alert("Passwords do not match.");
+          return false;
+        }
+        return true;
+      }
+    </script>
+  </body>
+</html>

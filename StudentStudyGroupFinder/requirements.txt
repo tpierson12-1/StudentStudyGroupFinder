@@ -1,0 +1,7 @@
+fastapi[standard]
+starlette
+python-multipart
+mysql-connector-python
+python-dotenv
+passlib[bcrypt]
+uvicorn

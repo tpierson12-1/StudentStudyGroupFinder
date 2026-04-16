@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="/static/favicon/groupstudy.jpg" type="image/jpeg" />
+    <link rel="stylesheet" href="/static/dashboard.css" />
+    <title>Dashboard - Student Study Group Finder</title>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Dashboard</h1>
+      <p>Welcome, {{ username }}!</p>
+
+      <section>
+        <h2>My Study Groups</h2>
+        {% if my_groups %}
+        <ul>
+          {% for group in my_groups %}
+          <li>{{ group.Group_Title }} <em>({{ group.GroupMembership_Role }})</em></li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p>You haven't joined any groups yet.</p>
+        {% endif %}
+      </section>
+
+      <section>
+        <h2>Available Groups</h2>
+        {% if all_groups %}
+        <ul>
+          {% for group in all_groups %}
+          <li>{{ group.Group_Title }}</li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p>No groups available.</p>
+        {% endif %}
+      </section>
+
+      <div class="buttons">
+        <button onclick="window.location.href='/creategroup'">Create Group</button>
+        <button onclick="window.location.href='/joingroup'">Join Group</button>
+        <button onclick="window.location.href='/logout'">Log Out</button>
+      </div>
+    </div>
+  </body>
+</html>

@@ -71,12 +71,12 @@ CREATE TABLE IF NOT EXISTS GroupTopic(
 
     PRIMARY KEY (Group_ID, Topic_ID),
     FOREIGN KEY (Group_ID) REFERENCES STUDY_GROUP(Group_ID),
-    FOREIGN KEY (Topic_ID) REFERENCES Topic(Topic_ID)
+    FOREIGN KEY (Topic_ID) REFERENCES Topic(Topic_ID) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS Location(
     Location_ID INT AUTO_INCREMENT PRIMARY KEY,   -- here as well
-    Location_Type VARCHAR(20),
+    Location_Type VARCHAR(20),                 
     Location_MeetingLink VARCHAR(255),
     Location_AddressLine1 VARCHAR(255),
     Location_City VARCHAR(80),
@@ -102,7 +102,7 @@ CREATE TABLE IF NOT EXISTS Session(
 CREATE TABLE IF NOT EXISTS SessionRSVP(
     Session_ID INT NOT NULL,
     User_ID INT NOT NULL,
-    SessionRSVP_Status VARCHAR(20),
+    SessionRSVP_Status BOOLEAN DEFAULT TRUE,
     SessionRSVP_Time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     PRIMARY KEY (Session_ID, User_ID),
@@ -274,17 +274,7 @@ JOIN APP_USER ON SessionRSVP.User_ID = APP_USER.User_ID
 WHERE SessionRSVP.Session_ID = %s;
 
 
--- **************** Queries/functions ****************
-
-
--- User account creation and updates
-INSERT INTO APP_USER (User_Email, User_PasswordHash, User_DisplayName, User_AccountStatus) VALUES (%s, %s, %s, 'Active');
-
-
--- User Bio and display name creation/change
-UPDATE APP_USER SET User_Bio = %s WHERE User_ID = %s; 
-
-UPDATE APP_USER SET User_DisplayName = %s WHERE User_ID = %s;
+-- **************** Queries ****************
 
 
 -- account login; fetches user info associated with their email and returns it. verify password hash on python's
@@ -298,58 +288,6 @@ WHERE User_Email = %s;
 SELECT U.User_ID, U.User_Email, U.User_DisplayName, U.User_Bio, U.User_CreatedAt, U.User_AccountStatus
 FROM APP_USER U
 WHERE User_ID = %s;
-
-
--- group creation
-INSERT INTO STUDY_GROUP (Group_Title, Group_Description, Group_PrivacyLevel, Group_SkillLevel, Owner_User_ID) VALUES (%s, %s, %s, %s, %s);
-
-/*
-TABLE CHEAT SHEET for my use:
-    
-    User                                Tutor                       Group
-        User_ID                             User_ID                     Group_ID
-        User_Email                          Tutor_Expertise             Group_Title
-        User_PasswordHash                   Tutor_Availability          Group_Description
-        User_DisplayName                                                Group_PrivacyLevel
-        User_Bio                                                        Group_SkillLevel
-        User_CreatedAt                                                  Group_CreatedAt
-        User_AccountStatus                                              Owner_User_ID
-
-    GroupMembership                     Topic                       GroupTopic
-        Group_ID                           Topic_ID                     Group_ID
-        User_ID                            Topic_Name                   Topic_ID
-        GroupMembership_Role               Topic_Category
-        GroupMembership_JoinStatus
-        GroupMembership_JoinedAt
-    
-    Location                            Session                     SessionRSVP
-        Location_ID                         Session_ID                  Session_ID
-        Location_Type                       Group_ID                    User_ID
-        Location_MeetingLink                Host_User_ID                SessionRSVP_Status
-        Location_AddressLine1               Location_ID                 SessionRSVP_Time
-        Location_City                       Session_StartDateTime
-        Location_State                      Session_EndDateTime
-        Location_Zip                        Session_Capacity
-                                            Session_Notes
-*/ 
--- group join and leave operations
-INSERT INTO GroupMembership (Group_ID, User_ID) VALUES (%s, %s);   -- join group
-
-UPDATE GroupMembership SET GroupMembership_JoinStatus IS FALSE;    -- leave group
-
-
--- tutor creation and updating tutor information
-INSERT INTO Tutor (User_ID, Tutor_Availability, Tutor_Expertise) VALUES (%s, %s, %s);
-
-UPDATE Tutor SET Tutor_Availability = %s WHERE User_ID = %s;
-UPDATE Tutor SET Tutor_Expertise = %s WHERE User_ID = %s;
-
-
--- create a session
-
-
-
--- RSVP to a session and cancel an RSVP
 
 
 -- group queries filtered by whatever info you want. Can add to these deoending on what filters we want.
@@ -388,3 +326,74 @@ SELECT *
 FROM v_UserSessionInfo Y JOIN (STUDY_GROUP G JOIN v_JustUsername V ON G.Owner_User_ID = V.User_ID AS X) ON Y.Group_ID = X.Group_ID
 WHERE Group_ID = %s;
 */
+
+
+
+-- **************** Data creation and updates ****************
+
+
+-- User account creation and updates
+INSERT INTO APP_USER (User_Email, User_PasswordHash, User_DisplayName, User_AccountStatus) VALUES (%s, %s, %s, 'Active');
+
+
+-- User Bio and display name creation/change
+UPDATE APP_USER SET User_Bio = %s WHERE User_ID = %s; 
+
+UPDATE APP_USER SET User_DisplayName = %s WHERE User_ID = %s;
+
+
+-- group creation/deletion
+INSERT INTO STUDY_GROUP (Group_Title, Group_Description, Group_PrivacyLevel, Group_SkillLevel, Owner_User_ID) VALUES (%s, %s, %s, %s, %s);
+
+
+
+
+-- add a topic to your group, delete a topic from your group
+-- make sure you use these in conjunction with one another, never use one and not the other. That will probably break the DB
+INSERT INTO Topic (Topic_Name, Topic_Category) VALUES (%s, %s);
+INSERT INTO GroupTopic (Group_ID, Topic_ID) VALUES (%s, LAST_INSERT_ID());
+
+DELETE FROM GroupTopic WHERE Topic_ID = %s;
+
+
+-- group join and leave operations
+INSERT INTO GroupMembership (Group_ID, User_ID)                                                        -- join group
+VALUES (%s, %s)
+ON DUPLICATE KEY UPDATE GroupMembership_JoinStatus = TRUE;
+
+UPDATE GroupMembership SET GroupMembership_JoinStatus = FALSE WHERE User_ID = %s AND Group_ID = %s;    -- leave group
+
+
+-- tutor creation and updating tutor information
+INSERT INTO Tutor (User_ID, Tutor_Availability, Tutor_Expertise) VALUES (%s, %s, %s);
+
+UPDATE Tutor SET Tutor_Availability = %s WHERE User_ID = %s;
+UPDATE Tutor SET Tutor_Expertise = %s WHERE User_ID = %s;
+
+
+/*        create a session or update an aspect of a session
+
+***THESE 2 OPERATIONS MUST BE USED IN CONJUNCTION WITH ONE ANOTHER otherwise it might totally break the DB. Create the location first, then the session
+
+I designed these with a button in mind that switches between adding an online location and adding a physical location. the webpage could show different
+boxes depending on which one you selected and the button that send the info to the backend will trigger either the in person version of the below query
+or the online version */
+INSERT INTO Location (Location_Type, Location_AddressLine1, Location_City, Location_State, Location_Zip)
+VALUES ('In-Person', %s, %s, %s, %s);
+INSERT INTO Location (Location_Type, Location_MeetingLink)
+VALUES ('Online', %s);
+
+INSERT INTO Session (Group_ID, Host_User_ID, Location_ID, Session_StartDateTime, Session_EndDateTime, Session_Capacity, Session_Notes)
+VALUES (%s, %s, LAST_INSERT_ID(), %s, %s, %s, %s);
+
+
+UPDATE Location SET 
+
+UPDATE Session SET 
+
+
+-- RSVP to a session and cancel an RSVP
+INSERT INTO SessionRSVP (Session_ID, User_ID) VALUES (%s, %s)
+ON DUPLICATE KEY UPDATE SessionRSVP_Status = TRUE;
+
+UPDATE SessionRSVP SET SessionRSVP_Status = FALSE WHERE Session_ID = %s AND User_ID = %s;

@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="/static/favicon/groupstudy.jpg" type="image/jpeg" />
+    <link rel="stylesheet" href="/static/dashboard.css" />
+    <title>Group - Student Study Group Finder</title>
+  </head>
+  <body>
+    <div class="container">
+
+      {% if error %}
+      <p style="color:red;">{{ error }}</p>
+      {% elif not group %}
+      <p>Group not found.</p>
+      {% else %}
+
+      <h1>{{ group.Group_Title }}</h1>
+      <p>{{ group.Group_Description }}</p>
+      <p>
+        <strong>Owner:</strong> {{ group.Owner_Name }} &nbsp;|&nbsp;
+        <strong>Privacy:</strong> {{ group.Group_PrivacyLevel }} &nbsp;|&nbsp;
+        <strong>Skill Level:</strong> {{ group.Group_SkillLevel }} &nbsp;|&nbsp;
+        <strong>Created:</strong> {{ group.Group_CreatedAt }}
+      </p>
+
+      {% if membership and membership.GroupMembership_Role == 'Owner' %}
+      <a href="/createsession/{{ group.Group_ID }}"><button style="margin-bottom:10px;">Add Session</button></a>
+      {% endif %}
+
+      {% if not membership %}
+      <form method="post" action="/joingroup" style="margin-bottom:15px;">
+        <input type="hidden" name="group_id" value="{{ group.Group_ID }}" />
+        <button type="submit">Join Group</button>
+      </form>
+      {% elif membership.GroupMembership_Role != 'Owner' %}
+      <form method="post" action="/leavegroup" style="margin-bottom:15px;">
+        <input type="hidden" name="group_id" value="{{ group.Group_ID }}" />
+        <button type="submit">Leave Group</button>
+      </form>
+      {% else %}
+      <p><em>You are the owner of this group.</em></p>
+      {% endif %}
+
+      {% if topics %}
+      <section>
+        <h2>Topics</h2>
+        <ul>
+          {% for topic in topics %}
+          <li>{{ topic.Topic_Name }} <em>({{ topic.Topic_Category }})</em></li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endif %}
+
+      <section>
+        <h2>Members</h2>
+        {% if members %}
+        <ul>
+          {% for member in members %}
+          <li>
+            {{ member.User_DisplayName }}
+            <em>({{ member.GroupMembership_Role }})</em>
+            — joined {{ member.GroupMembership_JoinedAt }}
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p>No members yet.</p>
+        {% endif %}
+      </section>
+
+      <section>
+        <h2>Sessions</h2>
+        {% if sessions %}
+          {% for session in sessions %}
+          <div style="border:1px solid #ccc; border-radius:8px; padding:15px; margin-bottom:15px; text-align:left;">
+            <p><strong>Start:</strong> {{ session.Session_StartDateTime }}</p>
+            <p><strong>End:</strong> {{ session.Session_EndDateTime }}</p>
+            <p><strong>Capacity:</strong> {{ session.Session_Capacity }}</p>
+            {% if session.Session_Notes %}
+            <p><strong>Notes:</strong> {{ session.Session_Notes }}</p>
+            {% endif %}
+
+            {% if session.Location_Type == 'Online' %}
+            <p><strong>Location:</strong> Online —
+              <a href="{{ session.Location_MeetingLink }}" target="_blank">Join Meeting</a>
+            </p>
+            {% elif session.Location_Type %}
+            <p><strong>Location:</strong>
+              {{ session.Location_AddressLine1 }}, {{ session.Location_City }},
+              {{ session.Location_State }} {{ session.Location_Zip }}
+            </p>
+            {% endif %}
+
+            {% if session.rsvps %}
+            <p><strong>RSVPs ({{ session.rsvps | length }}):</strong>
+              {% for rsvp in session.rsvps %}
+                {{ rsvp.User_DisplayName }}{% if rsvp.SessionRSVP_Status == 0 %} (cancelled){% endif %}{% if not loop.last %}, {% endif %}
+              {% endfor %}
+            </p>
+            {% endif %}
+          </div>
+          {% endfor %}
+        {% else %}
+        <p>No sessions scheduled yet.</p>
+        {% endif %}
+      </section>
+
+      {% endif %}
+
+      <p style="margin-top:20px;"><a href="/dashboard">Back to Dashboard</a></p>
+    </div>
+  </body>
+</html>

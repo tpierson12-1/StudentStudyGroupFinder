@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="/static/favicon/groupstudy.jpg" type="image/jpeg" />
+    <link rel="stylesheet" href="/static/login.css" />
+    <title>Create Session - Student Study Group Finder</title>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Create Session</h1>
+
+      {% if error %}
+      <p style="color: red; margin-bottom: 10px;">{{ error }}</p>
+      {% endif %}
+
+      <form method="post" action="/createsession" onsubmit="return validateForm()">
+        <input type="hidden" name="group_id" value="{{ group_id }}" />
+
+        <label for="start">Start Date & Time:</label><br />
+        <input type="datetime-local" id="start" name="start" required /><br /><br />
+
+        <label for="end">End Date & Time:</label><br />
+        <input type="datetime-local" id="end" name="end" required /><br /><br />
+
+        <label for="capacity">Capacity:</label><br />
+        <input type="number" id="capacity" name="capacity" min="1" required /><br /><br />
+
+        <label for="notes">Notes:</label><br />
+        <input type="text" id="notes" name="notes" /><br /><br />
+
+        <label for="location_type">Location Type:</label><br />
+        <select id="location_type" name="location_type" onchange="toggleLocation()">
+          <option value="Online">Online</option>
+          <option value="In-Person">In-Person</option>
+        </select><br /><br />
+
+        <div id="online_fields">
+          <label for="meeting_link">Meeting Link:</label><br />
+          <input type="text" id="meeting_link" name="meeting_link" /><br /><br />
+        </div>
+
+        <div id="inperson_fields" style="display:none;">
+          <label for="address">Address:</label><br />
+          <input type="text" id="address" name="address" /><br /><br />
+
+          <label for="city">City:</label><br />
+          <input type="text" id="city" name="city" /><br /><br />
+
+          <label for="state">State:</label><br />
+          <input type="text" id="state" name="state" /><br /><br />
+
+          <label for="zip_code">Zip Code:</label><br />
+          <input type="text" id="zip_code" name="zip_code" /><br /><br />
+        </div>
+
+        <input type="submit" value="Create Session" />
+      </form>
+
+      <p style="margin-top: 15px;"><a href="/group/{{ group_id }}">Back to Group</a></p>
+    </div>
+
+    <script>
+      function toggleLocation() {
+        const type = document.getElementById("location_type").value;
+        document.getElementById("online_fields").style.display = type === "Online" ? "block" : "none";
+        document.getElementById("inperson_fields").style.display = type === "In-Person" ? "block" : "none";
+      }
+
+      function validateForm() {
+        const start = document.getElementById("start").value;
+        const end = document.getElementById("end").value;
+        const capacity = document.getElementById("capacity").value;
+        const type = document.getElementById("location_type").value;
+
+        if (!start || !end || !capacity) {
+          alert("Start time, end time, and capacity are required.");
+          return false;
+        }
+        if (new Date(end) <= new Date(start)) {
+          alert("End time must be after start time.");
+          return false;
+        }
+        if (type === "Online" && !document.getElementById("meeting_link").value.trim()) {
+          alert("Please enter a meeting link for online sessions.");
+          return false;
+        }
+        if (type === "In-Person" && !document.getElementById("address").value.trim()) {
+          alert("Please enter an address for in-person sessions.");
+          return false;
+        }
+        return true;
+      }
+    </script>
+  </body>
+</html>

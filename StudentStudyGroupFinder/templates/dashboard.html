@@ -17,7 +17,20 @@
         {% if my_groups %}
         <ul>
           {% for group in my_groups %}
-          <li>{{ group.Group_Title }} <em>({{ group.GroupMembership_Role }})</em></li>
+          <li>
+            <a href="/group/{{ group.Group_ID }}">{{ group.Group_Title }}</a> <em>({{ group.GroupMembership_Role }})</em>
+            {% if group.GroupMembership_Role == 'Owner' %}
+            <form method="post" action="/deletegroup" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this group?')">
+              <input type="hidden" name="group_id" value="{{ group.Group_ID }}" />
+              <button type="submit" style="background-color:#c0392b;">Delete</button>
+            </form>
+            {% else %}
+            <form method="post" action="/leavegroup" style="display:inline;">
+              <input type="hidden" name="group_id" value="{{ group.Group_ID }}" />
+              <button type="submit">Leave</button>
+            </form>
+            {% endif %}
+          </li>
           {% endfor %}
         </ul>
         {% else %}
@@ -27,20 +40,27 @@
 
       <section>
         <h2>Available Groups</h2>
-        {% if all_groups %}
+        {% if available_groups %}
         <ul>
-          {% for group in all_groups %}
-          <li>{{ group.Group_Title }}</li>
+          {% for group in available_groups %}
+          <li>
+            <a href="/group/{{ group.Group_ID }}"><strong>{{ group.Group_Title }}</strong></a>
+            {% if group.Group_Description %} — {{ group.Group_Description }}{% endif %}
+            <em>({{ group.Group_SkillLevel }}, {{ group.Group_PrivacyLevel }})</em>
+            <form method="post" action="/joingroup" style="display:inline;">
+              <input type="hidden" name="group_id" value="{{ group.Group_ID }}" />
+              <button type="submit">Join</button>
+            </form>
+          </li>
           {% endfor %}
         </ul>
         {% else %}
-        <p>No groups available.</p>
+        <p>No other groups available.</p>
         {% endif %}
       </section>
 
       <div class="buttons">
         <button onclick="window.location.href='/creategroup'">Create Group</button>
-        <button onclick="window.location.href='/joingroup'">Join Group</button>
         <button onclick="window.location.href='/logout'">Log Out</button>
       </div>
     </div>

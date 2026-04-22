@@ -82,6 +82,9 @@ def register(
     email: str = Form(...),
     password: str = Form(...),
     confirm_pwd: str = Form(...),
+    is_tutor: str = Form(""),
+    expertise: str = Form(""),
+    availability: str = Form(""),
 ):
     error = None
     if password != confirm_pwd:
@@ -102,6 +105,12 @@ def register(
                     "INSERT INTO APP_USER (User_Email, User_PasswordHash, User_DisplayName, User_AccountStatus) VALUES (%s, %s, %s, 'Active')",
                     (email, hashed, display_name),
                 )
+                user_id = cursor.lastrowid
+                if is_tutor == "yes":
+                    cursor.execute(
+                        "INSERT INTO Tutor (User_ID, Tutor_Expertise, Tutor_Availability) VALUES (%s, %s, %s)",
+                        (user_id, expertise, availability),
+                    )
                 conn.commit()
                 cursor.close()
                 conn.close()
@@ -384,6 +393,26 @@ def deletegroup(request: Request, group_id: int = Form(...)):
     except Exception:
         pass
     return RedirectResponse(url="/dashboard", status_code=303)
+
+
+@app.get("/tutors", response_class=HTMLResponse)
+def tutors(request: Request):
+    if not request.session.get("user_id"):
+        return RedirectResponse(url="/login", status_code=302)
+    try:
+        conn = get_db_conn()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(
+            """SELECT APP_USER.User_DisplayName, Tutor.Tutor_Expertise, Tutor.Tutor_Availability
+               FROM Tutor
+               JOIN APP_USER ON Tutor.User_ID = APP_USER.User_ID"""
+        )
+        tutor_list = cursor.fetchall()
+        cursor.close()
+        conn.close()
+    except Exception:
+        tutor_list = []
+    return templates.TemplateResponse(request, "tutors.html", {"tutors": tutor_list})
 
 
 @app.get("/logout")

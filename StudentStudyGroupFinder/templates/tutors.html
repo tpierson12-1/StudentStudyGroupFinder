@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="/static/favicon/groupstudy.jpg" type="image/jpeg" />
+    <link rel="stylesheet" href="/static/dashboard.css" />
+    <title>Tutors - Student Study Group Finder</title>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Available Tutors</h1>
+
+      {% if tutors %}
+      <ul>
+        {% for tutor in tutors %}
+        <li style="margin-bottom: 15px;">
+          <strong>{{ tutor.User_DisplayName }}</strong><br />
+          <span><strong>Expertise:</strong> {{ tutor.Tutor_Expertise }}</span><br />
+          <span><strong>Availability:</strong> {{ tutor.Tutor_Availability }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p>No tutors are registered yet.</p>
+      {% endif %}
+
+      <p style="margin-top: 20px;"><a href="/dashboard">Back to Dashboard</a></p>
+    </div>
+  </body>
+</html>

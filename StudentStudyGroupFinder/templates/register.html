@@ -31,6 +31,19 @@
         <label for="confirm_pwd">Confirm Password:</label><br />
         <input type="password" id="confirm_pwd" name="confirm_pwd" required /><br /><br />
 
+        <label>
+          <input type="checkbox" id="is_tutor" name="is_tutor" value="yes" onclick="toggleTutor()" style="width:auto; margin-right:8px;" />
+          I am a tutor
+        </label><br /><br />
+
+        <div id="tutor_fields" style="display:none;">
+          <label for="expertise">Expertise:</label><br />
+          <input type="text" id="expertise" name="expertise" placeholder="e.g. Calculus, Python, SQL" /><br /><br />
+
+          <label for="availability">Availability:</label><br />
+          <input type="text" id="availability" name="availability" placeholder="e.g. Mon/Wed 5PM-8PM" /><br /><br />
+        </div>
+
         <input type="submit" value="Create Account" />
       </form>
 
@@ -40,6 +53,11 @@
     </div>
 
     <script>
+      function toggleTutor() {
+        const checked = document.getElementById("is_tutor").checked;
+        document.getElementById("tutor_fields").style.display = checked ? "block" : "none";
+      }
+
       function validateRegister() {
         const fname = document.getElementById("fname").value.trim();
         const lname = document.getElementById("lname").value.trim();
@@ -58,6 +76,16 @@
         if (password !== confirm) {
           alert("Passwords do not match.");
           return false;
+        }
+        if (document.getElementById("is_tutor").checked) {
+          if (!document.getElementById("expertise").value.trim()) {
+            alert("Please enter your expertise.");
+            return false;
+          }
+          if (!document.getElementById("availability").value.trim()) {
+            alert("Please enter your availability.");
+            return false;
+          }
         }
         return true;
       }

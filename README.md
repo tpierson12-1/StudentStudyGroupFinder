@@ -7,7 +7,7 @@ Student Study Group Finder is a group project designed to help students find and
 ## Features
 
 - User registration and login with password hashing
-- Create, join, leave, and delete study groups
+- Create, join, leave, edit, and delete study groups
 - Group detail page showing members, sessions, RSVPs, and topics
 - Session scheduling with online or in-person location support
 - RSVP tracking for sessions

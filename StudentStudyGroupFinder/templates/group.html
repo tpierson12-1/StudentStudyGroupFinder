@@ -27,6 +27,7 @@
 
       {% if membership and membership.GroupMembership_Role == 'Owner' %}
       <a href="/createsession/{{ group.Group_ID }}"><button style="margin-bottom:10px;">Add Session</button></a>
+      <a href="/editgroup/{{ group.Group_ID }}"><button style="margin-bottom:10px;">Edit Group</button></a>
       {% endif %}
 
       {% if not membership %}

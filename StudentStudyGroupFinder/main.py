@@ -366,6 +366,54 @@ def createsession(
         return templates.TemplateResponse(request, "createsession.html", {"group_id": group_id, "error": f"Database error: {e}"})
 
 
+@app.get("/editgroup/{group_id}", response_class=HTMLResponse)
+def editgroup_page(request: Request, group_id: int):
+    user_id = request.session.get("user_id")
+    if not user_id:
+        return RedirectResponse(url="/login", status_code=302)
+    try:
+        conn = get_db_conn()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM STUDY_GROUP WHERE Group_ID = %s AND Owner_User_ID = %s", (group_id, user_id))
+        group = cursor.fetchone()
+        cursor.close()
+        conn.close()
+    except Exception:
+        group = None
+    if not group:
+        return RedirectResponse(url="/dashboard", status_code=302)
+    return templates.TemplateResponse(request, "editgroup.html", {"group": group, "error": None})
+
+
+@app.post("/editgroup")
+def editgroup(
+    request: Request,
+    group_id: int = Form(...),
+    title: str = Form(...),
+    description: str = Form(""),
+    privacy: str = Form("Public"),
+    skill_level: str = Form("Beginner"),
+):
+    user_id = request.session.get("user_id")
+    if not user_id:
+        return RedirectResponse(url="/login", status_code=302)
+    try:
+        conn = get_db_conn()
+        cursor = conn.cursor()
+        cursor.execute(
+            """UPDATE STUDY_GROUP SET Group_Title = %s, Group_Description = %s,
+               Group_PrivacyLevel = %s, Group_SkillLevel = %s
+               WHERE Group_ID = %s AND Owner_User_ID = %s""",
+            (title, description, privacy, skill_level, group_id, user_id),
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return RedirectResponse(url=f"/group/{group_id}", status_code=303)
+    except Exception as e:
+        return templates.TemplateResponse(request, "editgroup.html", {"group": {"Group_ID": group_id, "Group_Title": title, "Group_Description": description, "Group_PrivacyLevel": privacy, "Group_SkillLevel": skill_level}, "error": f"Database error: {e}"})
+
+
 @app.post("/deletegroup")
 def deletegroup(request: Request, group_id: int = Form(...)):
     user_id = request.session.get("user_id")

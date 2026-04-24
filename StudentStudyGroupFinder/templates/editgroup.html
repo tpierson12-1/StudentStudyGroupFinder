@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="/static/favicon/groupstudy.jpg" type="image/jpeg" />
+    <link rel="stylesheet" href="/static/login.css" />
+    <title>Edit Group - Student Study Group Finder</title>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Edit Group</h1>
+
+      {% if error %}
+      <p style="color: red; margin-bottom: 10px;">{{ error }}</p>
+      {% endif %}
+
+      <form method="post" action="/editgroup">
+        <input type="hidden" name="group_id" value="{{ group.Group_ID }}" />
+
+        <label for="title">Group Title:</label><br />
+        <input type="text" id="title" name="title" value="{{ group.Group_Title }}" required /><br /><br />
+
+        <label for="description">Description:</label><br />
+        <input type="text" id="description" name="description" value="{{ group.Group_Description or '' }}" /><br /><br />
+
+        <label for="privacy">Privacy:</label><br />
+        <select id="privacy" name="privacy">
+          <option value="Public" {% if group.Group_PrivacyLevel == 'Public' %}selected{% endif %}>Public</option>
+          <option value="Private" {% if group.Group_PrivacyLevel == 'Private' %}selected{% endif %}>Private</option>
+        </select><br /><br />
+
+        <label for="skill_level">Skill Level:</label><br />
+        <select id="skill_level" name="skill_level">
+          <option value="Beginner" {% if group.Group_SkillLevel == 'Beginner' %}selected{% endif %}>Beginner</option>
+          <option value="Intermediate" {% if group.Group_SkillLevel == 'Intermediate' %}selected{% endif %}>Intermediate</option>
+          <option value="Advanced" {% if group.Group_SkillLevel == 'Advanced' %}selected{% endif %}>Advanced</option>
+        </select><br /><br />
+
+        <input type="submit" value="Save Changes" />
+      </form>
+
+      <p style="margin-top: 15px;"><a href="/group/{{ group.Group_ID }}">Cancel</a></p>
+    </div>
+  </body>
+</html>

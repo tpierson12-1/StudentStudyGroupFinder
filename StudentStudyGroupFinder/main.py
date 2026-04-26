@@ -15,8 +15,10 @@ app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY", "change
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
+
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
 
 def verify_password(password: str, hashed: str) -> bool:
     try:
@@ -56,6 +58,7 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
         user = cursor.fetchone()
         cursor.close()
         conn.close()
+
         if user and verify_password(password, user["User_PasswordHash"]):
             request.session["user_id"] = user["User_ID"]
             request.session["username"] = user["User_DisplayName"]
@@ -64,6 +67,7 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
             error = "Invalid email or password."
     except Exception as e:
         error = f"Database error: {e}"
+
     return templates.TemplateResponse(request, "login.html", {"error": error})
 
 
@@ -87,6 +91,7 @@ def register(
     availability: str = Form(""),
 ):
     error = None
+
     if password != confirm_pwd:
         error = "Passwords do not match."
     elif len(password) < 8:
@@ -95,63 +100,185 @@ def register(
         try:
             conn = get_db_conn()
             cursor = conn.cursor(dictionary=True)
+
             cursor.execute("SELECT User_ID FROM APP_USER WHERE User_Email = %s", (email,))
             if cursor.fetchone():
                 error = "An account with that email already exists."
             else:
                 hashed = hash_password(password)
                 display_name = f"{fname} {lname}"
+
                 cursor.execute(
-                    "INSERT INTO APP_USER (User_Email, User_PasswordHash, User_DisplayName, User_AccountStatus) VALUES (%s, %s, %s, 'Active')",
+                    """INSERT INTO APP_USER
+                       (User_Email, User_PasswordHash, User_DisplayName, User_AccountStatus)
+                       VALUES (%s, %s, %s, 'Active')""",
                     (email, hashed, display_name),
                 )
+
                 user_id = cursor.lastrowid
+
                 if is_tutor == "yes":
                     cursor.execute(
-                        "INSERT INTO Tutor (User_ID, Tutor_Expertise, Tutor_Availability) VALUES (%s, %s, %s)",
+                        """INSERT INTO Tutor
+                           (User_ID, Tutor_Expertise, Tutor_Availability)
+                           VALUES (%s, %s, %s)""",
                         (user_id, expertise, availability),
                     )
+
                 conn.commit()
                 cursor.close()
                 conn.close()
                 return RedirectResponse(url="/login", status_code=303)
+
             cursor.close()
             conn.close()
+
         except Exception as e:
             error = f"Database error: {e}"
+
     return templates.TemplateResponse(request, "register.html", {"error": error})
 
 
 @app.get("/dashboard", response_class=HTMLResponse)
-def dashboard(request: Request):
+def dashboard(request: Request, search: str = "", privacy: str = ""):
     user_id = request.session.get("user_id")
     if not user_id:
         return RedirectResponse(url="/login", status_code=302)
+
     try:
         conn = get_db_conn()
         cursor = conn.cursor(dictionary=True)
+
         cursor.execute(
             """SELECT STUDY_GROUP.Group_ID, STUDY_GROUP.Group_Title, GroupMembership.GroupMembership_Role
                FROM GroupMembership
                JOIN STUDY_GROUP ON GroupMembership.Group_ID = STUDY_GROUP.Group_ID
-               WHERE GroupMembership.User_ID = %s AND GroupMembership.GroupMembership_JoinStatus = TRUE""",
+               WHERE GroupMembership.User_ID = %s
+               AND GroupMembership.GroupMembership_JoinStatus = TRUE""",
             (user_id,),
         )
+
         my_groups = cursor.fetchall()
         my_group_ids = {g["Group_ID"] for g in my_groups}
-        cursor.execute("SELECT Group_ID, Group_Title, Group_Description, Group_PrivacyLevel, Group_SkillLevel FROM STUDY_GROUP")
+
+        query = """
+            SELECT DISTINCT STUDY_GROUP.Group_ID,
+                   STUDY_GROUP.Group_Title,
+                   STUDY_GROUP.Group_Description,
+                   STUDY_GROUP.Group_PrivacyLevel,
+                   STUDY_GROUP.Group_SkillLevel
+            FROM STUDY_GROUP
+            LEFT JOIN GroupTopic ON STUDY_GROUP.Group_ID = GroupTopic.Group_ID
+            LEFT JOIN Topic ON GroupTopic.Topic_ID = Topic.Topic_ID
+            WHERE 1 = 1
+        """
+        params = []
+
+        if search:
+            query += """
+                AND (
+                    STUDY_GROUP.Group_Title LIKE %s OR
+                    STUDY_GROUP.Group_Description LIKE %s OR
+                    Topic.Topic_Name LIKE %s OR
+                    Topic.Topic_Category LIKE %s
+                )
+            """
+            like_search = f"%{search}%"
+            params.extend([like_search, like_search, like_search, like_search])
+
+        if privacy:
+            query += " AND STUDY_GROUP.Group_PrivacyLevel = %s"
+            params.append(privacy)
+
+        cursor.execute(query, tuple(params))
         all_groups = cursor.fetchall()
+
         available_groups = [g for g in all_groups if g["Group_ID"] not in my_group_ids]
+
         cursor.close()
         conn.close()
+
     except Exception:
         my_groups = []
         available_groups = []
+
     return templates.TemplateResponse(request, "dashboard.html", {
         "my_groups": my_groups,
         "available_groups": available_groups,
         "username": request.session.get("username"),
+        "search": search,
+        "privacy": privacy
     })
+
+
+@app.get("/profile", response_class=HTMLResponse)
+def profile_page(request: Request):
+    user_id = request.session.get("user_id")
+    if not user_id:
+        return RedirectResponse(url="/login", status_code=302)
+
+    try:
+        conn = get_db_conn()
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute(
+            """SELECT User_ID, User_Email, User_DisplayName, User_Bio
+               FROM APP_USER
+               WHERE User_ID = %s""",
+            (user_id,)
+        )
+
+        user = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+    except Exception:
+        user = None
+
+    return templates.TemplateResponse(request, "profile.html", {"user": user, "error": None})
+
+
+@app.post("/profile")
+def update_profile(
+    request: Request,
+    display_name: str = Form(...),
+    bio: str = Form("")
+):
+    user_id = request.session.get("user_id")
+    if not user_id:
+        return RedirectResponse(url="/login", status_code=302)
+
+    try:
+        conn = get_db_conn()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """UPDATE APP_USER
+               SET User_DisplayName = %s,
+                   User_Bio = %s
+               WHERE User_ID = %s""",
+            (display_name, bio, user_id)
+        )
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        request.session["username"] = display_name
+        return RedirectResponse(url="/dashboard", status_code=303)
+
+    except Exception as e:
+        return templates.TemplateResponse(
+            request,
+            "profile.html",
+            {
+                "user": {
+                    "User_DisplayName": display_name,
+                    "User_Bio": bio
+                },
+                "error": f"Database error: {e}"
+            }
+        )
 
 
 @app.get("/creategroup", response_class=HTMLResponse)
@@ -172,22 +299,33 @@ def creategroup(
     user_id = request.session.get("user_id")
     if not user_id:
         return RedirectResponse(url="/login", status_code=302)
+
     try:
         conn = get_db_conn()
         cursor = conn.cursor()
+
         cursor.execute(
-            "INSERT INTO STUDY_GROUP (Group_Title, Group_Description, Group_PrivacyLevel, Group_SkillLevel, Owner_User_ID) VALUES (%s, %s, %s, %s, %s)",
+            """INSERT INTO STUDY_GROUP
+               (Group_Title, Group_Description, Group_PrivacyLevel, Group_SkillLevel, Owner_User_ID)
+               VALUES (%s, %s, %s, %s, %s)""",
             (title, description, privacy, skill_level, user_id),
         )
+
         group_id = cursor.lastrowid
+
         cursor.execute(
-            "INSERT INTO GroupMembership (Group_ID, User_ID, GroupMembership_Role, GroupMembership_JoinStatus) VALUES (%s, %s, 'Owner', TRUE)",
+            """INSERT INTO GroupMembership
+               (Group_ID, User_ID, GroupMembership_Role, GroupMembership_JoinStatus)
+               VALUES (%s, %s, 'Owner', TRUE)""",
             (group_id, user_id),
         )
+
         conn.commit()
         cursor.close()
         conn.close()
+
         return RedirectResponse(url="/dashboard", status_code=303)
+
     except Exception as e:
         return templates.TemplateResponse(request, "creategroup.html", {"error": f"Database error: {e}"})
 
@@ -197,20 +335,26 @@ def joingroup(request: Request, group_id: int = Form(...)):
     user_id = request.session.get("user_id")
     if not user_id:
         return RedirectResponse(url="/login", status_code=302)
+
     try:
         conn = get_db_conn()
         cursor = conn.cursor()
+
         cursor.execute(
-            """INSERT INTO GroupMembership (Group_ID, User_ID, GroupMembership_Role, GroupMembership_JoinStatus)
+            """INSERT INTO GroupMembership
+               (Group_ID, User_ID, GroupMembership_Role, GroupMembership_JoinStatus)
                VALUES (%s, %s, 'Member', TRUE)
                ON DUPLICATE KEY UPDATE GroupMembership_JoinStatus = TRUE""",
             (group_id, user_id),
         )
+
         conn.commit()
         cursor.close()
         conn.close()
+
     except Exception:
         pass
+
     return RedirectResponse(url="/dashboard", status_code=303)
 
 
@@ -219,18 +363,25 @@ def leavegroup(request: Request, group_id: int = Form(...)):
     user_id = request.session.get("user_id")
     if not user_id:
         return RedirectResponse(url="/login", status_code=302)
+
     try:
         conn = get_db_conn()
         cursor = conn.cursor()
+
         cursor.execute(
-            "UPDATE GroupMembership SET GroupMembership_JoinStatus = FALSE WHERE User_ID = %s AND Group_ID = %s",
+            """UPDATE GroupMembership
+               SET GroupMembership_JoinStatus = FALSE
+               WHERE User_ID = %s AND Group_ID = %s""",
             (user_id, group_id),
         )
+
         conn.commit()
         cursor.close()
         conn.close()
+
     except Exception:
         pass
+
     return RedirectResponse(url="/dashboard", status_code=303)
 
 
@@ -239,6 +390,7 @@ def group_detail(request: Request, group_id: int):
     user_id = request.session.get("user_id")
     if not user_id:
         return RedirectResponse(url="/login", status_code=302)
+
     try:
         conn = get_db_conn()
         cursor = conn.cursor(dictionary=True)
@@ -253,10 +405,13 @@ def group_detail(request: Request, group_id: int):
         group = cursor.fetchone()
 
         cursor.execute(
-            """SELECT APP_USER.User_DisplayName, GroupMembership.GroupMembership_Role, GroupMembership.GroupMembership_JoinedAt
+            """SELECT APP_USER.User_DisplayName,
+                      GroupMembership.GroupMembership_Role,
+                      GroupMembership.GroupMembership_JoinedAt
                FROM GroupMembership
                JOIN APP_USER ON GroupMembership.User_ID = APP_USER.User_ID
-               WHERE GroupMembership.Group_ID = %s AND GroupMembership.GroupMembership_JoinStatus = TRUE""",
+               WHERE GroupMembership.Group_ID = %s
+               AND GroupMembership.GroupMembership_JoinStatus = TRUE""",
             (group_id,),
         )
         members = cursor.fetchall()
@@ -284,7 +439,7 @@ def group_detail(request: Request, group_id: int):
             session["rsvps"] = cursor.fetchall()
 
         cursor.execute(
-            """SELECT Topic.Topic_Name, Topic.Topic_Category
+            """SELECT Topic.Topic_ID, Topic.Topic_Name, Topic.Topic_Category
                FROM GroupTopic
                JOIN Topic ON GroupTopic.Topic_ID = Topic.Topic_ID
                WHERE GroupTopic.Group_ID = %s""",
@@ -293,14 +448,18 @@ def group_detail(request: Request, group_id: int):
         topics = cursor.fetchall()
 
         cursor.execute(
-            """SELECT GroupMembership_Role FROM GroupMembership
-               WHERE Group_ID = %s AND User_ID = %s AND GroupMembership_JoinStatus = TRUE""",
+            """SELECT GroupMembership_Role
+               FROM GroupMembership
+               WHERE Group_ID = %s
+               AND User_ID = %s
+               AND GroupMembership_JoinStatus = TRUE""",
             (group_id, user_id),
         )
         membership = cursor.fetchone()
 
         cursor.close()
         conn.close()
+
     except Exception as e:
         return templates.TemplateResponse(request, "group.html", {"error": str(e), "group": None})
 
@@ -314,10 +473,128 @@ def group_detail(request: Request, group_id: int):
     })
 
 
+@app.get("/addtopic/{group_id}", response_class=HTMLResponse)
+def addtopic_page(request: Request, group_id: int):
+    user_id = request.session.get("user_id")
+    if not user_id:
+        return RedirectResponse(url="/login", status_code=302)
+
+    try:
+        conn = get_db_conn()
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute(
+            "SELECT * FROM STUDY_GROUP WHERE Group_ID = %s AND Owner_User_ID = %s",
+            (group_id, user_id)
+        )
+        group = cursor.fetchone()
+
+        cursor.close()
+        conn.close()
+
+        if not group:
+            return RedirectResponse(url="/dashboard", status_code=302)
+
+    except Exception:
+        return RedirectResponse(url="/dashboard", status_code=302)
+
+    return templates.TemplateResponse(request, "addtopic.html", {"group_id": group_id, "error": None})
+
+
+@app.post("/addtopic")
+def addtopic(
+    request: Request,
+    group_id: int = Form(...),
+    topic_name: str = Form(...),
+    topic_category: str = Form("")
+):
+    user_id = request.session.get("user_id")
+    if not user_id:
+        return RedirectResponse(url="/login", status_code=302)
+
+    try:
+        conn = get_db_conn()
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute(
+            "SELECT Owner_User_ID FROM STUDY_GROUP WHERE Group_ID = %s",
+            (group_id,)
+        )
+        group = cursor.fetchone()
+
+        if not group or group["Owner_User_ID"] != user_id:
+            cursor.close()
+            conn.close()
+            return RedirectResponse(url="/dashboard", status_code=302)
+
+        cursor.execute(
+            "INSERT INTO Topic (Topic_Name, Topic_Category) VALUES (%s, %s)",
+            (topic_name, topic_category)
+        )
+
+        topic_id = cursor.lastrowid
+
+        cursor.execute(
+            """INSERT INTO GroupTopic (Group_ID, Topic_ID)
+               VALUES (%s, %s)""",
+            (group_id, topic_id)
+        )
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return RedirectResponse(url=f"/group/{group_id}", status_code=303)
+
+    except Exception as e:
+        return templates.TemplateResponse(
+            request,
+            "addtopic.html",
+            {"group_id": group_id, "error": f"Database error: {e}"}
+        )
+
+
+@app.post("/removetopic")
+def removetopic(
+    request: Request,
+    group_id: int = Form(...),
+    topic_id: int = Form(...)
+):
+    user_id = request.session.get("user_id")
+    if not user_id:
+        return RedirectResponse(url="/login", status_code=302)
+
+    try:
+        conn = get_db_conn()
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute(
+            "SELECT Owner_User_ID FROM STUDY_GROUP WHERE Group_ID = %s",
+            (group_id,)
+        )
+        group = cursor.fetchone()
+
+        if group and group["Owner_User_ID"] == user_id:
+            cursor.execute(
+                "DELETE FROM GroupTopic WHERE Group_ID = %s AND Topic_ID = %s",
+                (group_id, topic_id)
+            )
+            conn.commit()
+
+        cursor.close()
+        conn.close()
+
+    except Exception:
+        pass
+
+    return RedirectResponse(url=f"/group/{group_id}", status_code=303)
+
+
 @app.get("/createsession/{group_id}", response_class=HTMLResponse)
 def createsession_page(request: Request, group_id: int):
     if not request.session.get("user_id"):
         return RedirectResponse(url="/login", status_code=302)
+
     return templates.TemplateResponse(request, "createsession.html", {"group_id": group_id, "error": None})
 
 
@@ -339,9 +616,11 @@ def createsession(
     user_id = request.session.get("user_id")
     if not user_id:
         return RedirectResponse(url="/login", status_code=302)
+
     try:
         conn = get_db_conn()
         cursor = conn.cursor()
+
         if location_type == "Online":
             cursor.execute(
                 "INSERT INTO Location (Location_Type, Location_MeetingLink) VALUES ('Online', %s)",
@@ -349,21 +628,71 @@ def createsession(
             )
         else:
             cursor.execute(
-                "INSERT INTO Location (Location_Type, Location_AddressLine1, Location_City, Location_State, Location_Zip) VALUES ('In-Person', %s, %s, %s, %s)",
+                """INSERT INTO Location
+                   (Location_Type, Location_AddressLine1, Location_City, Location_State, Location_Zip)
+                   VALUES ('In-Person', %s, %s, %s, %s)""",
                 (address, city, state, zip_code),
             )
+
         location_id = cursor.lastrowid
+
         cursor.execute(
-            """INSERT INTO Session (Group_ID, Host_User_ID, Location_ID, Session_StartDateTime, Session_EndDateTime, Session_Capacity, Session_Notes)
+            """INSERT INTO Session
+               (Group_ID, Host_User_ID, Location_ID, Session_StartDateTime,
+                Session_EndDateTime, Session_Capacity, Session_Notes)
                VALUES (%s, %s, %s, %s, %s, %s, %s)""",
             (group_id, user_id, location_id, start, end, capacity, notes),
         )
+
         conn.commit()
         cursor.close()
         conn.close()
+
         return RedirectResponse(url=f"/group/{group_id}", status_code=303)
+
     except Exception as e:
-        return templates.TemplateResponse(request, "createsession.html", {"group_id": group_id, "error": f"Database error: {e}"})
+        return templates.TemplateResponse(
+            request,
+            "createsession.html",
+            {"group_id": group_id, "error": f"Database error: {e}"}
+        )
+
+
+@app.post("/rsvp")
+def rsvp_session(
+    request: Request,
+    session_id: int = Form(...),
+    group_id: int = Form(...),
+    status: str = Form(...)
+):
+    user_id = request.session.get("user_id")
+    if not user_id:
+        return RedirectResponse(url="/login", status_code=302)
+
+    try:
+        conn = get_db_conn()
+        cursor = conn.cursor()
+
+        rsvp_value = True if status == "Going" else False
+
+        cursor.execute(
+            """INSERT INTO SessionRSVP
+               (Session_ID, User_ID, SessionRSVP_Status)
+               VALUES (%s, %s, %s)
+               ON DUPLICATE KEY UPDATE
+               SessionRSVP_Status = %s,
+               SessionRSVP_Time = CURRENT_TIMESTAMP""",
+            (session_id, user_id, rsvp_value, rsvp_value)
+        )
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+    except Exception:
+        pass
+
+    return RedirectResponse(url=f"/group/{group_id}", status_code=303)
 
 
 @app.get("/editgroup/{group_id}", response_class=HTMLResponse)
@@ -371,17 +700,26 @@ def editgroup_page(request: Request, group_id: int):
     user_id = request.session.get("user_id")
     if not user_id:
         return RedirectResponse(url="/login", status_code=302)
+
     try:
         conn = get_db_conn()
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM STUDY_GROUP WHERE Group_ID = %s AND Owner_User_ID = %s", (group_id, user_id))
+
+        cursor.execute(
+            "SELECT * FROM STUDY_GROUP WHERE Group_ID = %s AND Owner_User_ID = %s",
+            (group_id, user_id)
+        )
         group = cursor.fetchone()
+
         cursor.close()
         conn.close()
+
     except Exception:
         group = None
+
     if not group:
         return RedirectResponse(url="/dashboard", status_code=302)
+
     return templates.TemplateResponse(request, "editgroup.html", {"group": group, "error": None})
 
 
@@ -397,21 +735,43 @@ def editgroup(
     user_id = request.session.get("user_id")
     if not user_id:
         return RedirectResponse(url="/login", status_code=302)
+
     try:
         conn = get_db_conn()
         cursor = conn.cursor()
+
         cursor.execute(
-            """UPDATE STUDY_GROUP SET Group_Title = %s, Group_Description = %s,
-               Group_PrivacyLevel = %s, Group_SkillLevel = %s
-               WHERE Group_ID = %s AND Owner_User_ID = %s""",
+            """UPDATE STUDY_GROUP
+               SET Group_Title = %s,
+                   Group_Description = %s,
+                   Group_PrivacyLevel = %s,
+                   Group_SkillLevel = %s
+               WHERE Group_ID = %s
+               AND Owner_User_ID = %s""",
             (title, description, privacy, skill_level, group_id, user_id),
         )
+
         conn.commit()
         cursor.close()
         conn.close()
+
         return RedirectResponse(url=f"/group/{group_id}", status_code=303)
+
     except Exception as e:
-        return templates.TemplateResponse(request, "editgroup.html", {"group": {"Group_ID": group_id, "Group_Title": title, "Group_Description": description, "Group_PrivacyLevel": privacy, "Group_SkillLevel": skill_level}, "error": f"Database error: {e}"})
+        return templates.TemplateResponse(
+            request,
+            "editgroup.html",
+            {
+                "group": {
+                    "Group_ID": group_id,
+                    "Group_Title": title,
+                    "Group_Description": description,
+                    "Group_PrivacyLevel": privacy,
+                    "Group_SkillLevel": skill_level
+                },
+                "error": f"Database error: {e}"
+            }
+        )
 
 
 @app.post("/deletegroup")
@@ -419,27 +779,38 @@ def deletegroup(request: Request, group_id: int = Form(...)):
     user_id = request.session.get("user_id")
     if not user_id:
         return RedirectResponse(url="/login", status_code=302)
+
     try:
         conn = get_db_conn()
         cursor = conn.cursor(dictionary=True)
+
         cursor.execute(
-            "SELECT Owner_User_ID FROM STUDY_GROUP WHERE Group_ID = %s", (group_id,)
+            "SELECT Owner_User_ID FROM STUDY_GROUP WHERE Group_ID = %s",
+            (group_id,)
         )
         group = cursor.fetchone()
+
         if not group or group["Owner_User_ID"] != user_id:
             cursor.close()
             conn.close()
             return RedirectResponse(url="/dashboard", status_code=303)
-        cursor.execute("DELETE FROM SessionRSVP WHERE Session_ID IN (SELECT Session_ID FROM Session WHERE Group_ID = %s)", (group_id,))
+
+        cursor.execute(
+            "DELETE FROM SessionRSVP WHERE Session_ID IN (SELECT Session_ID FROM Session WHERE Group_ID = %s)",
+            (group_id,)
+        )
         cursor.execute("DELETE FROM Session WHERE Group_ID = %s", (group_id,))
         cursor.execute("DELETE FROM GroupMembership WHERE Group_ID = %s", (group_id,))
         cursor.execute("DELETE FROM GroupTopic WHERE Group_ID = %s", (group_id,))
         cursor.execute("DELETE FROM STUDY_GROUP WHERE Group_ID = %s", (group_id,))
+
         conn.commit()
         cursor.close()
         conn.close()
+
     except Exception:
         pass
+
     return RedirectResponse(url="/dashboard", status_code=303)
 
 
@@ -447,20 +818,102 @@ def deletegroup(request: Request, group_id: int = Form(...)):
 def tutors(request: Request):
     if not request.session.get("user_id"):
         return RedirectResponse(url="/login", status_code=302)
+
     try:
         conn = get_db_conn()
         cursor = conn.cursor(dictionary=True)
+
         cursor.execute(
-            """SELECT APP_USER.User_DisplayName, Tutor.Tutor_Expertise, Tutor.Tutor_Availability
+            """SELECT APP_USER.User_DisplayName,
+                      Tutor.Tutor_Expertise,
+                      Tutor.Tutor_Availability
                FROM Tutor
                JOIN APP_USER ON Tutor.User_ID = APP_USER.User_ID"""
         )
+
         tutor_list = cursor.fetchall()
         cursor.close()
         conn.close()
+
     except Exception:
         tutor_list = []
+
     return templates.TemplateResponse(request, "tutors.html", {"tutors": tutor_list})
+
+
+@app.get("/edittutor", response_class=HTMLResponse)
+def edittutor_page(request: Request):
+    user_id = request.session.get("user_id")
+    if not user_id:
+        return RedirectResponse(url="/login", status_code=302)
+
+    try:
+        conn = get_db_conn()
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute(
+            """SELECT Tutor_Expertise, Tutor_Availability
+               FROM Tutor
+               WHERE User_ID = %s""",
+            (user_id,)
+        )
+
+        tutor = cursor.fetchone()
+
+        cursor.close()
+        conn.close()
+
+    except Exception:
+        tutor = None
+
+    if not tutor:
+        tutor = {"Tutor_Expertise": "", "Tutor_Availability": ""}
+
+    return templates.TemplateResponse(request, "edittutor.html", {"tutor": tutor, "error": None})
+
+
+@app.post("/edittutor")
+def update_tutor(
+    request: Request,
+    expertise: str = Form(""),
+    availability: str = Form("")
+):
+    user_id = request.session.get("user_id")
+    if not user_id:
+        return RedirectResponse(url="/login", status_code=302)
+
+    try:
+        conn = get_db_conn()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """INSERT INTO Tutor
+               (User_ID, Tutor_Expertise, Tutor_Availability)
+               VALUES (%s, %s, %s)
+               ON DUPLICATE KEY UPDATE
+               Tutor_Expertise = %s,
+               Tutor_Availability = %s""",
+            (user_id, expertise, availability, expertise, availability)
+        )
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return RedirectResponse(url="/tutors", status_code=303)
+
+    except Exception as e:
+        return templates.TemplateResponse(
+            request,
+            "edittutor.html",
+            {
+                "tutor": {
+                    "Tutor_Expertise": expertise,
+                    "Tutor_Availability": availability
+                },
+                "error": f"Database error: {e}"
+            }
+        )
 
 
 @app.get("/logout")

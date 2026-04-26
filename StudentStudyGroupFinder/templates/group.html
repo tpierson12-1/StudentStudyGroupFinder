@@ -18,6 +18,7 @@
 
       <h1>{{ group.Group_Title }}</h1>
       <p>{{ group.Group_Description }}</p>
+
       <p>
         <strong>Owner:</strong> {{ group.Owner_Name }} &nbsp;|&nbsp;
         <strong>Privacy:</strong> {{ group.Group_PrivacyLevel }} &nbsp;|&nbsp;
@@ -28,6 +29,7 @@
       {% if membership and membership.GroupMembership_Role == 'Owner' %}
       <a href="/createsession/{{ group.Group_ID }}"><button style="margin-bottom:10px;">Add Session</button></a>
       <a href="/editgroup/{{ group.Group_ID }}"><button style="margin-bottom:10px;">Edit Group</button></a>
+      <a href="/addtopic/{{ group.Group_ID }}"><button style="margin-bottom:10px;">Add Topic</button></a>
       {% endif %}
 
       {% if not membership %}
@@ -44,16 +46,31 @@
       <p><em>You are the owner of this group.</em></p>
       {% endif %}
 
-      {% if topics %}
       <section>
         <h2>Topics</h2>
+        {% if topics %}
         <ul>
           {% for topic in topics %}
-          <li>{{ topic.Topic_Name }} <em>({{ topic.Topic_Category }})</em></li>
+          <li>
+            {{ topic.Topic_Name }}
+            {% if topic.Topic_Category %}
+              <em>({{ topic.Topic_Category }})</em>
+            {% endif %}
+
+            {% if membership and membership.GroupMembership_Role == 'Owner' %}
+            <form method="post" action="/removetopic" style="display:inline;">
+              <input type="hidden" name="group_id" value="{{ group.Group_ID }}" />
+              <input type="hidden" name="topic_id" value="{{ topic.Topic_ID }}" />
+              <button type="submit" style="background-color:#c0392b;">Remove</button>
+            </form>
+            {% endif %}
+          </li>
           {% endfor %}
         </ul>
+        {% else %}
+        <p>No topics linked to this group yet.</p>
+        {% endif %}
       </section>
-      {% endif %}
 
       <section>
         <h2>Members</h2>
@@ -74,33 +91,55 @@
 
       <section>
         <h2>Sessions</h2>
+
         {% if sessions %}
           {% for session in sessions %}
           <div style="border:1px solid #ccc; border-radius:8px; padding:15px; margin-bottom:15px; text-align:left;">
             <p><strong>Start:</strong> {{ session.Session_StartDateTime }}</p>
             <p><strong>End:</strong> {{ session.Session_EndDateTime }}</p>
             <p><strong>Capacity:</strong> {{ session.Session_Capacity }}</p>
+
             {% if session.Session_Notes %}
             <p><strong>Notes:</strong> {{ session.Session_Notes }}</p>
             {% endif %}
 
             {% if session.Location_Type == 'Online' %}
-            <p><strong>Location:</strong> Online —
+            <p>
+              <strong>Location:</strong> Online —
               <a href="{{ session.Location_MeetingLink }}" target="_blank">Join Meeting</a>
             </p>
             {% elif session.Location_Type %}
-            <p><strong>Location:</strong>
+            <p>
+              <strong>Location:</strong>
               {{ session.Location_AddressLine1 }}, {{ session.Location_City }},
               {{ session.Location_State }} {{ session.Location_Zip }}
             </p>
             {% endif %}
 
+            {% if membership %}
+            <form method="post" action="/rsvp" style="margin-top:10px;">
+              <input type="hidden" name="session_id" value="{{ session.Session_ID }}" />
+              <input type="hidden" name="group_id" value="{{ group.Group_ID }}" />
+              <button type="submit" name="status" value="Going">RSVP Going</button>
+              <button type="submit" name="status" value="Not Going">Cancel RSVP</button>
+            </form>
+            {% endif %}
+
             {% if session.rsvps %}
-            <p><strong>RSVPs ({{ session.rsvps | length }}):</strong>
+            <p>
+              <strong>RSVPs ({{ session.rsvps | length }}):</strong>
               {% for rsvp in session.rsvps %}
-                {{ rsvp.User_DisplayName }}{% if rsvp.SessionRSVP_Status == 0 %} (cancelled){% endif %}{% if not loop.last %}, {% endif %}
+                {{ rsvp.User_DisplayName }}
+                {% if rsvp.SessionRSVP_Status == 0 %}
+                  (not going)
+                {% else %}
+                  (going)
+                {% endif %}
+                {% if not loop.last %}, {% endif %}
               {% endfor %}
             </p>
+            {% else %}
+            <p><strong>RSVPs:</strong> No responses yet.</p>
             {% endif %}
           </div>
           {% endfor %}

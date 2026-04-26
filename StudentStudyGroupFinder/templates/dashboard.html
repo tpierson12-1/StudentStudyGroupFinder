@@ -12,13 +12,23 @@
       <h1>Dashboard</h1>
       <p>Welcome, {{ username }}!</p>
 
+      <div class="buttons">
+        <button onclick="window.location.href='/creategroup'">Create Group</button>
+        <button onclick="window.location.href='/profile'">Edit Profile</button>
+        <button onclick="window.location.href='/edittutor'">Edit Tutor Profile</button>
+        <button onclick="window.location.href='/tutors'">View Tutors</button>
+        <button onclick="window.location.href='/logout'">Log Out</button>
+      </div>
+
       <section>
         <h2>My Study Groups</h2>
         {% if my_groups %}
         <ul>
           {% for group in my_groups %}
           <li>
-            <a href="/group/{{ group.Group_ID }}">{{ group.Group_Title }}</a> <em>({{ group.GroupMembership_Role }})</em>
+            <a href="/group/{{ group.Group_ID }}">{{ group.Group_Title }}</a>
+            <em>({{ group.GroupMembership_Role }})</em>
+
             {% if group.GroupMembership_Role == 'Owner' %}
             <form method="post" action="/deletegroup" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this group?')">
               <input type="hidden" name="group_id" value="{{ group.Group_ID }}" />
@@ -39,14 +49,42 @@
       </section>
 
       <section>
+        <h2>Search / Filter Groups</h2>
+
+        <form method="get" action="/dashboard" style="margin-bottom:15px;">
+          <input
+            type="text"
+            name="search"
+            placeholder="Search by group, description, topic, or category"
+            value="{{ search or '' }}"
+          />
+
+          <select name="privacy">
+            <option value="">All Privacy Levels</option>
+            <option value="Public" {% if privacy == "Public" %}selected{% endif %}>Public</option>
+            <option value="Private" {% if privacy == "Private" %}selected{% endif %}>Private</option>
+            <option value="Invite-only" {% if privacy == "Invite-only" %}selected{% endif %}>Invite-only</option>
+          </select>
+
+          <button type="submit">Search</button>
+          <button type="button" onclick="window.location.href='/dashboard'">Clear</button>
+        </form>
+      </section>
+
+      <section>
         <h2>Available Groups</h2>
         {% if available_groups %}
         <ul>
           {% for group in available_groups %}
           <li>
             <a href="/group/{{ group.Group_ID }}"><strong>{{ group.Group_Title }}</strong></a>
-            {% if group.Group_Description %} — {{ group.Group_Description }}{% endif %}
+
+            {% if group.Group_Description %}
+              — {{ group.Group_Description }}
+            {% endif %}
+
             <em>({{ group.Group_SkillLevel }}, {{ group.Group_PrivacyLevel }})</em>
+
             <form method="post" action="/joingroup" style="display:inline;">
               <input type="hidden" name="group_id" value="{{ group.Group_ID }}" />
               <button type="submit">Join</button>
@@ -58,12 +96,6 @@
         <p>No other groups available.</p>
         {% endif %}
       </section>
-
-      <div class="buttons">
-        <button onclick="window.location.href='/creategroup'">Create Group</button>
-        <button onclick="window.location.href='/tutors'">View Tutors</button>
-        <button onclick="window.location.href='/logout'">Log Out</button>
-      </div>
     </div>
   </body>
 </html>

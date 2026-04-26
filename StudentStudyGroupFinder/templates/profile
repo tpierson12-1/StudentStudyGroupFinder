@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Edit Profile</title>
+</head>
+<body>
+    <h1>Edit Profile</h1>
+
+    {% if error %}
+        <p style="color:red;">{{ error }}</p>
+    {% endif %}
+
+    <form method="post" action="/profile">
+        <label>Display Name:</label>
+        <input type="text" name="display_name" value="{{ user.User_DisplayName }}" required>
+
+        <label>Bio:</label>
+        <textarea name="bio">{{ user.User_Bio or "" }}</textarea>
+
+        <button type="submit">Update Profile</button>
+    </form>
+
+    <a href="/dashboard">Back to Dashboard</a>
+</body>
+</html>

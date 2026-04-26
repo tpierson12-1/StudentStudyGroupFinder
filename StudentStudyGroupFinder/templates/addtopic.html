@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Add Topic</title>
+</head>
+<body>
+    <h1>Add Topic</h1>
+
+    {% if error %}
+        <p style="color:red;">{{ error }}</p>
+    {% endif %}
+
+    <form method="post" action="/addtopic">
+        <input type="hidden" name="group_id" value="{{ group_id }}">
+
+        <label>Topic Name:</label>
+        <input type="text" name="topic_name" required>
+
+        <label>Topic Category:</label>
+        <input type="text" name="topic_category">
+
+        <button type="submit">Add Topic</button>
+    </form>
+
+    <a href="/group/{{ group_id }}">Back to Group</a>
+</body>
+</html>
